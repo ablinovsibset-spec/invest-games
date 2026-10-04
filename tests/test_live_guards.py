@@ -7,7 +7,7 @@ from tests.scenarios import scenario
 
 
 def test_console_does_not_start_without_key(monkeypatch) -> None:
-    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    monkeypatch.setenv("TYPESAFE_API_KEY", "")
     try:
         main([])
     except SystemExit as exit_code:
@@ -17,7 +17,7 @@ def test_console_does_not_start_without_key(monkeypatch) -> None:
 
 
 def test_web_does_not_start_without_key(monkeypatch) -> None:
-    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    monkeypatch.setenv("TYPESAFE_API_KEY", "")
     try:
         create_app()
     except SystemExit:
