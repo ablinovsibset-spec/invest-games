@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>Сделка</title>
+    <style>
+      body { font-family: sans-serif; max-width: 40rem; margin: 2rem auto; }
+      label { display: block; margin: 1rem 0; }
+      input[type="range"] { width: 100%; }
+    </style>
+  </head>
+  <body>
+    <h1>Открыть стол</h1>
+    <form method="post" action="/start">
+      <label>
+        Жадность
+        <input type="range" name="greed" min="0" max="100" value="50" />
+      </label>
+      <label>
+        Вежливость
+        <input type="range" name="politeness" min="0" max="100" value="50" />
+      </label>
+      <button type="submit">Сесть за стол</button>
+    </form>
+  </body>
+</html>

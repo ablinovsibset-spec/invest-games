@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>Сделка</title>
+    <style>
+      body { font-family: sans-serif; max-width: 44rem; margin: 2rem auto; }
+      .meta { display: grid; gap: 0.35rem; margin-bottom: 1.5rem; }
+      .chat { border-top: 1px solid #ccc; padding-top: 1rem; }
+      .line { margin: 0.6rem 0; }
+      form { margin-top: 1.5rem; display: flex; gap: 0.5rem; }
+      input[type="text"] { flex: 1; padding: 0.4rem; }
+      .error { color: #a00; }
+    </style>
+  </head>
+  <body>
+    <h1>{{ view.company_name }}</h1>
+    <div class="meta">
+      <div>Питч: {{ view.pitch }}</div>
+      <div>Запрос: {{ view.ask }}</div>
+      <div>Терпение: {{ view.patience }}</div>
+      <div>Жадность: {{ view.greed }}</div>
+      <div>Вежливость: {{ view.politeness }}</div>
+      {% if view.investor_offer %}
+        <div>Предложение Инвестора: {{ view.investor_offer.kind }} {{ view.investor_offer.amount }}{% if view.investor_offer.share %} за {{ view.investor_offer.share }}%{% endif %}</div>
+      {% endif %}
+      {% if view.founder_offer %}
+        <div>Предложение Основателя: {{ view.founder_offer.kind }} {{ view.founder_offer.amount }}{% if view.founder_offer.share %} за {{ view.founder_offer.share }}%{% endif %}</div>
+      {% endif %}
+      {% if view.ultimatum %}
+        <div>Ультиматум: да</div>
+      {% endif %}
+      {% if view.outcome %}
+        <div>Исход: {{ view.outcome }}</div>
+      {% endif %}
+    </div>
+    <div class="chat">
+      {% for remark in view.remarks %}
+        <p class="line"><strong>{% if remark.speaker == "инвестор" %}Инвестор{% else %}Основатель{% endif %}:</strong> {{ remark.text }}</p>
+      {% endfor %}
+    </div>
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+    {% if not view.ended %}
+      <form method="post" action="/move">
+        <input type="text" name="line" autofocus />
+        <button type="submit">Ход</button>
+      </form>
+    {% endif %}
+  </body>
+</html>
