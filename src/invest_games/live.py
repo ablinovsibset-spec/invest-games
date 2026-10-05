@@ -2,9 +2,41 @@ from typing import Any
 
 import jev
 from openai import OpenAI
+from pydantic import BaseModel, Field
 
 from invest_games.ports import CompanyDraft, OpeningBelief, ReactionJudgement, SpeechJudgement
 from invest_games.settings import require_routerai_key, routerai_base_url
+
+
+class _OpeningBeliefScore(BaseModel):
+    """Jev score form of opening belief.
+
+    int ge/le becomes one Score level per integer; RouterAI allows at most 10.
+    float ge/le interpolates across a few labels, then we round back to 0–100.
+    """
+
+    technique: float = Field(
+        ge=0,
+        le=100,
+        description=(
+            "Honest starting technique from pitch and name only. "
+            "Use the full 0–100 range; do not squeeze into a comfortable mid band"
+        ),
+        json_schema_extra={
+            "levels": ["0", "25", "50", "75", "100"],
+        },
+    )
+    morality: float = Field(
+        ge=0,
+        le=100,
+        description=(
+            "Honest starting morality from pitch and name only. "
+            "A dark pitch may be low; do not raise it for playability"
+        ),
+        json_schema_extra={
+            "levels": ["0", "25", "50", "75", "100"],
+        },
+    )
 
 
 @jev.fn(model="jev-1.13")
@@ -18,7 +50,7 @@ def _judge_reaction(state: dict[str, Any]) -> ReactionJudgement:
 
 
 @jev.fn(model="jev-1.13")
-def _judge_opening(state: dict[str, Any]) -> OpeningBelief:
+def _judge_opening(state: dict[str, Any]) -> _OpeningBeliefScore:
     """Honest starting technique and morality from pitch and name only.
 
     Use the full 0–100 range. Do not squeeze belief into a comfortable mid band
@@ -37,9 +69,11 @@ class JevBrain:
 
     def judge_opening(self, state: dict[str, object]) -> OpeningBelief:
         belief = _judge_opening(state)
-        if not 0 <= belief.technique <= 100 or not 0 <= belief.morality <= 100:
+        technique = int(round(belief.technique))
+        morality = int(round(belief.morality))
+        if not 0 <= technique <= 100 or not 0 <= morality <= 100:
             raise RuntimeError("стартовый Jev вернул веру вне 0–100")
-        return belief
+        return OpeningBelief(technique=technique, morality=morality)
 
 
 class LlmParty:
