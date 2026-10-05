@@ -8,29 +8,33 @@ from invest_games.settings import require_routerai_key
 
 
 def play(game: Game, stdin: TextIO, stdout: TextIO) -> None:
-    stdout.write("Жадность (0-100): ")
-    stdout.flush()
-    greed = int(stdin.readline().strip())
-    stdout.write("Вежливость (0-100): ")
-    stdout.flush()
-    politeness = int(stdin.readline().strip())
-    view = game.start(жадность=greed, вежливость=politeness)
-    _print_view(view, stdout)
-    while not view.ended:
-        stdout.write("> ")
+    try:
+        stdout.write("Жадность (0-100): ")
         stdout.flush()
-        line = stdin.readline()
-        if not line:
-            break
-        try:
-            view = game.submit(line)
-        except InputError as error:
-            stdout.write(f"{error.message}\n")
-            continue
-        except ApiError as error:
-            stdout.write(f"{error.message}\n")
-            continue
+        greed = int(stdin.readline().strip())
+        stdout.write("Вежливость (0-100): ")
+        stdout.flush()
+        politeness = int(stdin.readline().strip())
+        view = game.start(жадность=greed, вежливость=politeness)
         _print_view(view, stdout)
+        while not view.ended:
+            stdout.write("> ")
+            stdout.flush()
+            line = stdin.readline()
+            if not line:
+                break
+            try:
+                view = game.submit(line)
+            except InputError as error:
+                stdout.write(f"{error.message}\n")
+                continue
+            except ApiError as error:
+                stdout.write(f"{error.message}\n")
+                continue
+            _print_view(view, stdout)
+    except KeyboardInterrupt:
+        stdout.write("\n")
+        stdout.flush()
 
 
 def _print_view(view: View, stdout: TextIO) -> None:

@@ -136,6 +136,17 @@ def test_after_outcome_submit_is_rejected() -> None:
         raise AssertionError("closed table accepted a move")
 
 
+class _InterruptAfterTraits:
+    def __init__(self) -> None:
+        self._lines = iter(["40\n", "60\n"])
+
+    def readline(self) -> str:
+        try:
+            return next(self._lines)
+        except StopIteration:
+            raise KeyboardInterrupt
+
+
 def test_console_sets_traits_shows_table_and_leaves() -> None:
     game = Game(
         brain=ScriptedBrain(),
@@ -151,3 +162,19 @@ def test_console_sets_traits_shows_table_and_leaves() -> None:
     assert "1000000" in out.replace(" ", "").replace("€", "")
     assert "Первая реплика за столом" in out
     assert "отказ основателя" in out.casefold()
+
+
+def test_console_ctrl_c_at_prompt_exits_without_raising() -> None:
+    game = Game(
+        brain=ScriptedBrain(),
+        voice=ScriptedVoice("Первая реплика за столом."),
+        scenario=NORMAL,
+    )
+    stdout = io.StringIO()
+
+    try:
+        play(game, stdin=_InterruptAfterTraits(), stdout=stdout)
+    except KeyboardInterrupt:
+        raise AssertionError("ctrl-c leaked from play") from None
+
+    assert "отказ основателя" not in stdout.getvalue().casefold()
