@@ -1,6 +1,6 @@
 from collections import deque
 
-from invest_games.ports import ReactionJudgement, SpeechJudgement
+from invest_games.ports import CompanyDraft, OpeningBelief, ReactionJudgement, SpeechJudgement
 
 
 NEUTRAL_SPEECH = SpeechJudgement(
@@ -21,11 +21,14 @@ class ScriptedBrain:
         *,
         speeches: list[SpeechJudgement] | tuple[SpeechJudgement, ...] = (),
         reactions: list[ReactionJudgement] | tuple[ReactionJudgement, ...] = (),
+        openings: list[OpeningBelief] | tuple[OpeningBelief, ...] = (),
     ) -> None:
         self._speeches = deque(speeches)
         self._reactions = deque(reactions)
+        self._openings = deque(openings)
         self.speech_states: list[dict[str, object]] = []
         self.reaction_states: list[dict[str, object]] = []
+        self.opening_states: list[dict[str, object]] = []
 
     def judge_speech(self, state: dict[str, object]) -> SpeechJudgement:
         self.speech_states.append(state)
@@ -38,6 +41,22 @@ class ScriptedBrain:
         if not self._reactions:
             raise AssertionError("unexpected reaction judgement")
         return self._reactions.popleft()
+
+    def judge_opening(self, state: dict[str, object]) -> OpeningBelief:
+        self.opening_states.append(state)
+        if not self._openings:
+            raise AssertionError("unexpected opening judgement")
+        return self._openings.popleft()
+
+
+class ScriptedParty:
+    def __init__(self, draft: CompanyDraft | dict[str, object]) -> None:
+        self._draft = draft if isinstance(draft, CompanyDraft) else CompanyDraft.model_validate(draft)
+        self.states: list[dict[str, object]] = []
+
+    def compose(self, state: dict[str, object]) -> CompanyDraft:
+        self.states.append(state)
+        return self._draft
 
 
 class ScriptedVoice:
@@ -60,6 +79,9 @@ class BoomPort:
         raise RuntimeError("routerai down")
 
     def judge_reaction(self, state: dict[str, object]) -> ReactionJudgement:
+        raise RuntimeError("routerai down")
+
+    def judge_opening(self, state: dict[str, object]) -> OpeningBelief:
         raise RuntimeError("routerai down")
 
     def speak(self, state: dict[str, object]) -> str:

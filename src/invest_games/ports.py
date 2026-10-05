@@ -42,10 +42,41 @@ class ReactionJudgement(BaseModel):
     )
 
 
+class OpeningBelief(BaseModel):
+    technique: int = Field(
+        ge=0,
+        le=100,
+        description=(
+            "Honest starting technique from pitch and name only. "
+            "Use the full 0–100 range; do not squeeze into a comfortable mid band"
+        ),
+    )
+    morality: int = Field(
+        ge=0,
+        le=100,
+        description=(
+            "Honest starting morality from pitch and name only. "
+            "A dark pitch may be low; do not raise it for playability"
+        ),
+    )
+
+
+class CompanyDraft(BaseModel):
+    company_name: str = Field(description="Company name composed for this deal")
+    pitch: str = Field(description="Open pitch without technique or morality numbers")
+    ask: int = Field(description="Ask price the founder wants for the company")
+
+
 class Brain(Protocol):
     def judge_speech(self, state: dict[str, object]) -> SpeechJudgement: ...
 
     def judge_reaction(self, state: dict[str, object]) -> ReactionJudgement: ...
+
+    def judge_opening(self, state: dict[str, object]) -> OpeningBelief: ...
+
+
+class Party(Protocol):
+    def compose(self, state: dict[str, object]) -> CompanyDraft: ...
 
 
 class Voice(Protocol):

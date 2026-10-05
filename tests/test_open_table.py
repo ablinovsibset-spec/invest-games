@@ -164,6 +164,32 @@ def test_console_sets_traits_shows_table_and_leaves() -> None:
     assert "отказ основателя" in out.casefold()
 
 
+def test_console_live_start_shows_party_company() -> None:
+    from invest_games.ports import OpeningBelief
+    from tests.fakes import ScriptedParty
+
+    game = Game(
+        brain=ScriptedBrain(openings=[OpeningBelief(technique=55, morality=70)]),
+        voice=ScriptedVoice("Первая реплика за столом."),
+        party=ScriptedParty(
+            {
+                "company_name": "Aurora",
+                "pitch": "Ночной диспетчер для малых складов.",
+                "ask": 1_250_000,
+            }
+        ),
+    )
+    stdout = io.StringIO()
+
+    play(game, stdin=io.StringIO("40\n60\nуйти\n"), stdout=stdout)
+
+    out = stdout.getvalue()
+    assert "Aurora" in out
+    assert "Ночной диспетчер" in out
+    assert "1250000" in out.replace(" ", "").replace("€", "")
+    assert "Nimbus" not in out
+
+
 def test_console_ctrl_c_at_prompt_exits_without_raising() -> None:
     game = Game(
         brain=ScriptedBrain(),

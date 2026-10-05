@@ -8,19 +8,24 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from invest_games.game import ApiError, Game, InputError, View
-from invest_games.ports import Brain, Voice
+from invest_games.ports import Brain, Party, Voice
 from invest_games.settings import require_routerai_key
 
 TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 
-def create_app(brain: Brain | None = None, voice: Voice | None = None) -> FastAPI:
+def create_app(
+    brain: Brain | None = None,
+    voice: Voice | None = None,
+    party: Party | None = None,
+) -> FastAPI:
     if brain is None or voice is None:
         require_routerai_key()
-        from invest_games.live import JevBrain, LlmVoice
+        from invest_games.live import JevBrain, LlmParty, LlmVoice
 
         brain = brain or JevBrain()
         voice = voice or LlmVoice()
+        party = party or LlmParty()
 
     app = FastAPI()
     tables: dict[str, tuple[Game, View]] = {}
@@ -47,7 +52,7 @@ def create_app(brain: Brain | None = None, voice: Voice | None = None) -> FastAP
         deal_id = request.cookies.get("deal_id")
         if deal_id and deal_id in tables:
             return RedirectResponse("/", status_code=303)
-        game = Game(brain=brain, voice=voice)
+        game = Game(brain=brain, voice=voice, party=party)
         view = game.start(жадность=greed, вежливость=politeness)
         deal_id = str(uuid.uuid4())
         tables[deal_id] = (game, view)

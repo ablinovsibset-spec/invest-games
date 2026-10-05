@@ -66,9 +66,13 @@ def _format_offer(offer) -> str:
 def main(argv: list[str] | None = None) -> None:
     del argv
     require_routerai_key()
-    from invest_games.live import JevBrain, LlmVoice
+    from invest_games.live import JevBrain, LlmParty, LlmVoice
 
-    play(Game(brain=JevBrain(), voice=LlmVoice()), stdin=sys.stdin, stdout=sys.stdout)
+    play(
+        Game(brain=JevBrain(), voice=LlmVoice(), party=LlmParty()),
+        stdin=sys.stdin,
+        stdout=sys.stdout,
+    )
 
 
 if __name__ == "__main__":
