@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>Сделка</title>
+    <style>
+      body { font-family: sans-serif; max-width: 40rem; margin: 2rem auto; }
+      label { display: block; margin: 1rem 0; }
+      input[type="range"], input[type="text"], input[type="number"], textarea { width: 100%; }
+      textarea { min-height: 6rem; }
+      .error { color: #a00; }
+    </style>
+  </head>
+  <body>
+    <h1>Открыть стол</h1>
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+    <form method="post" action="/start">
+      <label>
+        Жадность
+        <input type="range" name="greed" min="0" max="100" value="50" />
+      </label>
+      <label>
+        Вежливость
+        <input type="range" name="politeness" min="0" max="100" value="50" />
+      </label>
+      <label>
+        Компания
+        <input type="text" name="company_name" required />
+      </label>
+      <label>
+        Питч
+        <textarea name="pitch" required></textarea>
+      </label>
+      <label>
+        Запрос
+        <input type="number" name="ask" min="200000" max="10000000" required />
+      </label>
+      <button type="submit">Сесть за стол</button>
+    </form>
+  </body>
+</html>
