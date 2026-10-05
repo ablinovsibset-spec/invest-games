@@ -28,7 +28,6 @@ def test_founder_accepts_by_speech_closes_without_second_jev() -> None:
                 competence=2,
                 believe_facts=False,
                 tech_shift=0,
-                burn_patience=False,
                 founder_accepts=True,
             )
         ],

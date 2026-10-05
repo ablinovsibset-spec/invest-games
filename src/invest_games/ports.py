@@ -16,7 +16,6 @@ class SpeechJudgement(BaseModel):
         le=3,
         description="How much those believed facts raise technique: none, slight, clear, strong",
     )
-    burn_patience: bool = Field(description="Whether this turn should burn one unit of patience")
     founder_accepts: bool = Field(
         description="Whether the founder is accepting the investor offer already on the table"
     )
@@ -61,22 +60,12 @@ class OpeningBelief(BaseModel):
     )
 
 
-class CompanyDraft(BaseModel):
-    company_name: str = Field(description="Company name composed for this deal")
-    pitch: str = Field(description="Open pitch without technique or morality numbers")
-    ask: int = Field(description="Ask price the founder wants for the company")
-
-
 class Brain(Protocol):
     def judge_speech(self, state: dict[str, object]) -> SpeechJudgement: ...
 
     def judge_reaction(self, state: dict[str, object]) -> ReactionJudgement: ...
 
     def judge_opening(self, state: dict[str, object]) -> OpeningBelief: ...
-
-
-class Party(Protocol):
-    def compose(self, state: dict[str, object]) -> CompanyDraft: ...
 
 
 class Voice(Protocol):

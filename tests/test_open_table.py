@@ -30,7 +30,7 @@ def _open_fields(view: View) -> set[str]:
     return set(view.__dataclass_fields__)
 
 
-def test_start_shows_pitch_ask_patience_and_first_line() -> None:
+def test_start_shows_pitch_ask_and_first_line() -> None:
     voice = ScriptedVoice("Готов сесть за стол на этих цифрах.")
     game = Game(brain=ScriptedBrain(), voice=voice, scenario=NORMAL)
 
@@ -39,7 +39,6 @@ def test_start_shows_pitch_ask_patience_and_first_line() -> None:
     assert view.company_name == "Nimbus"
     assert view.pitch == NORMAL.pitch
     assert view.ask == 1_000_000
-    assert view.patience == 4
     assert view.greed == 40
     assert view.politeness == 60
     assert view.remarks[-1].speaker == "инвестор"
@@ -164,24 +163,22 @@ def test_console_sets_traits_shows_table_and_leaves() -> None:
     assert "отказ основателя" in out.casefold()
 
 
-def test_console_live_start_shows_party_company() -> None:
+def test_console_live_start_shows_founder_company() -> None:
     from invest_games.ports import OpeningBelief
-    from tests.fakes import ScriptedParty
 
     game = Game(
         brain=ScriptedBrain(openings=[OpeningBelief(technique=55, morality=70)]),
         voice=ScriptedVoice("Первая реплика за столом."),
-        party=ScriptedParty(
-            {
-                "company_name": "Aurora",
-                "pitch": "Ночной диспетчер для малых складов.",
-                "ask": 1_250_000,
-            }
-        ),
     )
     stdout = io.StringIO()
 
-    play(game, stdin=io.StringIO("40\n60\nуйти\n"), stdout=stdout)
+    play(
+        game,
+        stdin=io.StringIO(
+            "40\n60\nAurora\nНочной диспетчер для малых складов.\n1250000\nуйти\n"
+        ),
+        stdout=stdout,
+    )
 
     out = stdout.getvalue()
     assert "Aurora" in out

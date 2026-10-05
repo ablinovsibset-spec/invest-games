@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 from typing import TextIO
 
-from invest_games.game import ApiError, Game, InputError, View
+from invest_games.game import ASK_MAX, ASK_MIN, ApiError, Game, InputError, View
 from invest_games.settings import require_routerai_key
 
 
@@ -15,7 +15,25 @@ def play(game: Game, stdin: TextIO, stdout: TextIO) -> None:
         stdout.write("Вежливость (0-100): ")
         stdout.flush()
         politeness = int(stdin.readline().strip())
-        view = game.start(жадность=greed, вежливость=politeness)
+        if game.needs_founder_company:
+            stdout.write("Компания: ")
+            stdout.flush()
+            company = stdin.readline().rstrip("\n")
+            stdout.write("Питч: ")
+            stdout.flush()
+            pitch = stdin.readline().rstrip("\n")
+            stdout.write(f"Запрос ({ASK_MIN}-{ASK_MAX}): ")
+            stdout.flush()
+            ask = int(stdin.readline().strip())
+            view = game.start(
+                жадность=greed,
+                вежливость=politeness,
+                компания=company,
+                питч=pitch,
+                запрос=ask,
+            )
+        else:
+            view = game.start(жадность=greed, вежливость=politeness)
         _print_view(view, stdout)
         while not view.ended:
             stdout.write("> ")
@@ -41,7 +59,6 @@ def _print_view(view: View, stdout: TextIO) -> None:
     stdout.write(f"Компания: {view.company_name}\n")
     stdout.write(f"Питч: {view.pitch}\n")
     stdout.write(f"Запрос: {view.ask}\n")
-    stdout.write(f"Терпение: {view.patience}\n")
     stdout.write(f"Жадность: {view.greed}\n")
     stdout.write(f"Вежливость: {view.politeness}\n")
     if view.investor_offer is not None:
@@ -66,10 +83,10 @@ def _format_offer(offer) -> str:
 def main(argv: list[str] | None = None) -> None:
     del argv
     require_routerai_key()
-    from invest_games.live import JevBrain, LlmParty, LlmVoice
+    from invest_games.live import JevBrain, LlmVoice
 
     play(
-        Game(brain=JevBrain(), voice=LlmVoice(), party=LlmParty()),
+        Game(brain=JevBrain(), voice=LlmVoice()),
         stdin=sys.stdin,
         stdout=sys.stdout,
     )

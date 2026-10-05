@@ -18,7 +18,6 @@
     <div class="meta">
       <div>Питч: {{ view.pitch }}</div>
       <div>Запрос: {{ view.ask }}</div>
-      <div>Терпение: {{ view.patience }}</div>
       <div>Жадность: {{ view.greed }}</div>
       <div>Вежливость: {{ view.politeness }}</div>
       {% if view.investor_offer %}
@@ -46,5 +45,8 @@
         <button type="submit">Ход</button>
       </form>
     {% endif %}
+    <form method="post" action="/new-table" onsubmit="return confirm('Открыть новый стол? Текущая Сделка будет сброшена.');">
+      <button type="submit">Открыть новый стол</button>
+    </form>
   </body>
 </html>

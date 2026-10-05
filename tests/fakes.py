@@ -1,6 +1,6 @@
 from collections import deque
 
-from invest_games.ports import CompanyDraft, OpeningBelief, ReactionJudgement, SpeechJudgement
+from invest_games.ports import OpeningBelief, ReactionJudgement, SpeechJudgement
 
 
 NEUTRAL_SPEECH = SpeechJudgement(
@@ -8,7 +8,6 @@ NEUTRAL_SPEECH = SpeechJudgement(
     competence=2,
     believe_facts=False,
     tech_shift=0,
-    burn_patience=False,
     founder_accepts=False,
 )
 
@@ -47,16 +46,6 @@ class ScriptedBrain:
         if not self._openings:
             raise AssertionError("unexpected opening judgement")
         return self._openings.popleft()
-
-
-class ScriptedParty:
-    def __init__(self, draft: CompanyDraft | dict[str, object]) -> None:
-        self._draft = draft if isinstance(draft, CompanyDraft) else CompanyDraft.model_validate(draft)
-        self.states: list[dict[str, object]] = []
-
-    def compose(self, state: dict[str, object]) -> CompanyDraft:
-        self.states.append(state)
-        return self._draft
 
 
 class ScriptedVoice:

@@ -4,7 +4,7 @@ import jev
 from openai import OpenAI
 from pydantic import BaseModel, Field
 
-from invest_games.ports import CompanyDraft, OpeningBelief, ReactionJudgement, SpeechJudgement
+from invest_games.ports import OpeningBelief, ReactionJudgement, SpeechJudgement
 from invest_games.settings import require_routerai_key, routerai_base_url
 
 
@@ -74,48 +74,6 @@ class JevBrain:
         if not 0 <= technique <= 100 or not 0 <= morality <= 100:
             raise RuntimeError("стартовый Jev вернул веру вне 0–100")
         return OpeningBelief(technique=technique, morality=morality)
-
-
-class LlmParty:
-    def __init__(self) -> None:
-        base = routerai_base_url()
-        self._client = OpenAI(api_key=require_routerai_key(), base_url=f"{base}/v1")
-
-    def compose(self, state: dict[str, object]) -> CompanyDraft:
-        response = self._client.chat.completions.create(
-            model="openai/gpt-4o-mini",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "Ты Партия за столом переговоров. "
-                        "Сочини новую Компанию для одной Сделки: имя, Питч и Запрос. "
-                        "Смотри на Жадность и Вежливость Инвестора — они могут сместить историю и ценник. "
-                        "Питч — открытое описание без чисел Техники и Морали. "
-                        "Запрос — целое число от 200000 до 10000000. "
-                        "Ответь строго JSON-объектом с ключами company_name, pitch, ask. "
-                        "Бюджет, Технику и Мораль не пиши."
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": (
-                        f"Жадность: {state.get('greed')}. "
-                        f"Вежливость: {state.get('politeness')}."
-                    ),
-                },
-            ],
-            response_format={"type": "json_object"},
-        )
-        text = response.choices[0].message.content
-        if not text or not text.strip():
-            raise RuntimeError("пустая партия RouterAI")
-        draft = CompanyDraft.model_validate_json(text)
-        if not draft.company_name.strip() or not draft.pitch.strip():
-            raise RuntimeError("партия вернула пустое имя или Питч")
-        if not 200_000 <= draft.ask <= 10_000_000:
-            raise RuntimeError("партия вернула Запрос вне рамки")
-        return draft
 
 
 class LlmVoice:

@@ -1,12 +1,17 @@
-from types import SimpleNamespace
-
 from invest_games.cli import main
 from invest_games.game import ApiError, Game, InputError
-from invest_games.live import JevBrain, LlmParty
+from invest_games.live import JevBrain
 from invest_games.ports import OpeningBelief, ReactionJudgement, SpeechJudgement
 from invest_games.web import create_app
-from tests.fakes import NEUTRAL_SPEECH, TALK, BoomPort, ScriptedBrain, ScriptedParty, ScriptedVoice
+from tests.fakes import NEUTRAL_SPEECH, TALK, BoomPort, ScriptedBrain, ScriptedVoice
 from tests.scenarios import scenario
+
+
+LIVE_COMPANY = {
+    "компания": "Aurora",
+    "питч": "Ночной диспетчер.",
+    "запрос": 1_000_000,
+}
 
 
 def test_console_does_not_start_without_key(monkeypatch) -> None:
@@ -59,12 +64,13 @@ def test_voice_hears_the_decided_accept_not_the_raw_reaction() -> None:
     assert voice.states[-1]["reaction"] == "accept"
 
 
-def test_routerai_failure_does_not_burn_patience_and_allows_retry() -> None:
+def test_routerai_failure_does_not_change_table_and_allows_retry() -> None:
     voice = ScriptedVoice("Открылись.")
     boom = BoomPort()
     game = Game(brain=boom, voice=voice, scenario=scenario())
     opened = game.start(жадность=20, вежливость=20)
-    assert opened.patience == 2
+    assert opened.ended is False
+    assert len(opened.remarks) == 1
 
     try:
         game.submit("извините за паузу")
@@ -73,7 +79,6 @@ def test_routerai_failure_does_not_burn_patience_and_allows_retry() -> None:
     else:
         raise AssertionError("network failure was swallowed")
 
-    assert game.view().patience == 2
     assert game.view().ended is False
     assert len(game.view().remarks) == 1
 
@@ -88,7 +93,7 @@ def test_routerai_failure_does_not_burn_patience_and_allows_retry() -> None:
     game.start(жадность=20, вежливость=20)
     retry = game.submit("извините за паузу")
     assert retry.ended is False
-    assert retry.patience == 2
+    assert len(retry.remarks) == 3
 
 
 def test_second_jev_sees_updated_technique_and_valuation() -> None:
@@ -99,7 +104,6 @@ def test_second_jev_sees_updated_technique_and_valuation() -> None:
                 competence=3,
                 believe_facts=True,
                 tech_shift=2,
-                burn_patience=False,
                 founder_accepts=False,
             )
         ],
@@ -119,40 +123,6 @@ def test_second_jev_sees_updated_technique_and_valuation() -> None:
     assert after["valuation"] != before["valuation"]
 
 
-def test_live_party_rejects_empty_and_bad_ask(monkeypatch) -> None:
-    party = LlmParty.__new__(LlmParty)
-
-    def _reply(content: str | None):
-        return SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content=content))]
-        )
-
-    class _Client:
-        def __init__(self, content: str | None) -> None:
-            self._content = content
-            self.chat = SimpleNamespace(
-                completions=SimpleNamespace(create=lambda **_kwargs: _reply(self._content))
-            )
-
-    party._client = _Client("")  # type: ignore[attr-defined]
-    try:
-        party.compose({"greed": 40, "politeness": 60})
-    except RuntimeError as error:
-        assert "пустая партия" in str(error).casefold()
-    else:
-        raise AssertionError("empty party reply was accepted")
-
-    party._client = _Client(  # type: ignore[attr-defined]
-        '{"company_name":"X","pitch":"Нормальный питч","ask":100}'
-    )
-    try:
-        party.compose({"greed": 40, "politeness": 60})
-    except RuntimeError as error:
-        assert "запрос" in str(error).casefold()
-    else:
-        raise AssertionError("bad ask was accepted")
-
-
 def test_live_opening_jev_failure_does_not_leave_table(monkeypatch) -> None:
     def boom(_state: dict[str, object]) -> OpeningBelief:
         raise RuntimeError("opening jev down")
@@ -161,16 +131,9 @@ def test_live_opening_jev_failure_does_not_leave_table(monkeypatch) -> None:
     game = Game(
         brain=JevBrain(),
         voice=ScriptedVoice("нет"),
-        party=ScriptedParty(
-            {
-                "company_name": "Aurora",
-                "pitch": "Ночной диспетчер.",
-                "ask": 1_000_000,
-            }
-        ),
     )
     try:
-        game.start(жадность=40, вежливость=60)
+        game.start(жадность=40, вежливость=60, **LIVE_COMPANY)
     except ApiError:
         pass
     else:
@@ -191,15 +154,8 @@ def test_after_live_open_jev_still_judges_speech() -> None:
     game = Game(
         brain=brain,
         voice=ScriptedVoice(["Открылись.", "Слушаю."]),
-        party=ScriptedParty(
-            {
-                "company_name": "Aurora",
-                "pitch": "Ночной диспетчер.",
-                "ask": 1_000_000,
-            }
-        ),
     )
-    game.start(жадность=40, вежливость=60)
+    game.start(жадность=40, вежливость=60, **LIVE_COMPANY)
     view = game.submit("мы растём аккуратно")
     assert view.ended is False
     assert len(brain.speech_states) == 1

@@ -13,7 +13,6 @@ def test_fat_offer_can_open_purchase_on_the_same_turn() -> None:
                     competence=3,
                     believe_facts=True,
                     tech_shift=1,
-                    burn_patience=False,
                     founder_accepts=False,
                 )
             ],
@@ -92,7 +91,6 @@ def test_open_view_still_hides_private_numbers() -> None:
                     competence=3,
                     believe_facts=True,
                     tech_shift=2,
-                    burn_patience=False,
                     founder_accepts=False,
                 )
             ],

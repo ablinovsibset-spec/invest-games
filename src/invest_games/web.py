@@ -8,7 +8,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from invest_games.game import ApiError, Game, InputError, View
-from invest_games.ports import Brain, Party, Voice
+from invest_games.ports import Brain, Voice
 from invest_games.settings import require_routerai_key
 
 TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
@@ -17,15 +17,13 @@ TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 def create_app(
     brain: Brain | None = None,
     voice: Voice | None = None,
-    party: Party | None = None,
 ) -> FastAPI:
     if brain is None or voice is None:
         require_routerai_key()
-        from invest_games.live import JevBrain, LlmParty, LlmVoice
+        from invest_games.live import JevBrain, LlmVoice
 
         brain = brain or JevBrain()
         voice = voice or LlmVoice()
-        party = party or LlmParty()
 
     app = FastAPI()
     tables: dict[str, tuple[Game, View]] = {}
@@ -48,12 +46,29 @@ def create_app(
         request: Request,
         greed: int = Form(...),
         politeness: int = Form(...),
-    ) -> RedirectResponse:
+        company_name: str = Form(...),
+        pitch: str = Form(...),
+        ask: int = Form(...),
+    ) -> Response:
         deal_id = request.cookies.get("deal_id")
         if deal_id and deal_id in tables:
             return RedirectResponse("/", status_code=303)
-        game = Game(brain=brain, voice=voice, party=party)
-        view = game.start(жадность=greed, вежливость=politeness)
+        game = Game(brain=brain, voice=voice)
+        try:
+            view = game.start(
+                жадность=greed,
+                вежливость=politeness,
+                компания=company_name,
+                питч=pitch,
+                запрос=ask,
+            )
+        except (InputError, ApiError) as exc:
+            return TEMPLATES.TemplateResponse(
+                request,
+                "start.html",
+                {"error": exc.message},
+                status_code=400,
+            )
         deal_id = str(uuid.uuid4())
         tables[deal_id] = (game, view)
         response = RedirectResponse("/", status_code=303)
@@ -69,7 +84,7 @@ def create_app(
         game, view = session
         error = None
         if view.ended:
-            error = "Стол закрыт: партия уже закончилась"
+            error = "Стол закрыт: Сделка уже закончилась"
         else:
             try:
                 view = game.submit(line)
@@ -82,6 +97,15 @@ def create_app(
             "table.html",
             {"view": view, "error": error},
         )
+
+    @app.post("/new-table")
+    def new_table(request: Request) -> Response:
+        deal_id = request.cookies.get("deal_id")
+        if deal_id:
+            tables.pop(deal_id, None)
+        response = RedirectResponse("/", status_code=303)
+        response.delete_cookie("deal_id")
+        return response
 
     return app
 

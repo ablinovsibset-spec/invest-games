@@ -4,7 +4,7 @@ import random
 from dataclasses import dataclass, field
 from typing import Literal
 
-from invest_games.ports import Brain, CompanyDraft, Party, Voice
+from invest_games.ports import Brain, Voice
 from invest_games.scenario import Scenario
 
 LOW_MORALITY = 40
@@ -17,7 +17,7 @@ ASK_MIN = 200_000
 ASK_MAX = 10_000_000
 BUDGET_SHARE_MIN = 20
 BUDGET_SHARE_MAX = 50
-Outcome = Literal["раунд", "покупка", "уход", "исчерпание", "отказ основателя"]
+Outcome = Literal["раунд", "покупка", "уход", "отказ основателя"]
 OfferKind = Literal["раунд", "покупка"]
 
 
@@ -51,7 +51,6 @@ class View:
     company_name: str
     pitch: str
     ask: int
-    patience: int
     greed: int
     politeness: int
     remarks: tuple[Remark, ...]
@@ -71,7 +70,6 @@ class _Table:
     technique: int
     morality: int
     valuation: int
-    patience: int
     greed: int
     politeness: int
     remarks: list[Remark] = field(default_factory=list)
@@ -90,21 +88,37 @@ class Game:
         brain: Brain,
         voice: Voice,
         scenario: Scenario | None = None,
-        party: Party | None = None,
     ) -> None:
         self._brain = brain
         self._voice = voice
         self._scenario = scenario
-        self._party = party
         self._table: _Table | None = None
 
-    def start(self, жадность: int, вежливость: int) -> View:
+    @property
+    def needs_founder_company(self) -> bool:
+        return self._scenario is None
+
+    def start(
+        self,
+        жадность: int,
+        вежливость: int,
+        *,
+        компания: str | None = None,
+        питч: str | None = None,
+        запрос: int | None = None,
+    ) -> View:
         greed = _trait(жадность, "Жадность")
         politeness = _trait(вежливость, "Вежливость")
         if self._scenario is not None:
             table = self._table_from_scenario(self._scenario, greed=greed, politeness=politeness)
         else:
-            table = self._table_from_party(greed=greed, politeness=politeness)
+            table = self._table_from_founder(
+                greed=greed,
+                politeness=politeness,
+                company_name=компания or "",
+                pitch=питч or "",
+                ask=запрос,
+            )
         if not _low_morality(table.morality):
             table.investor_offer = _opening_round(table)
         self._table = table
@@ -125,49 +139,46 @@ class Game:
             technique=scenario.technique,
             morality=scenario.morality,
             valuation=scenario.ask,
-            patience=_patience(politeness),
             greed=greed,
             politeness=politeness,
         )
 
-    def _table_from_party(self, *, greed: int, politeness: int) -> _Table:
-        if self._party is None:
-            raise InputError("Живой стол требует партию")
+    def _table_from_founder(
+        self,
+        *,
+        greed: int,
+        politeness: int,
+        company_name: str,
+        pitch: str,
+        ask: int | None,
+    ) -> _Table:
+        name, text, ask_value = _validated_founder_company(company_name, pitch, ask)
+        budget = ask_value * random.randint(BUDGET_SHARE_MIN, BUDGET_SHARE_MAX) // 100
         try:
-            raw = self._party.compose({"greed": greed, "politeness": politeness})
-        except ApiError:
-            raise
-        except Exception as exc:
-            raise ApiError("Сбой RouterAI. Стол не изменился, повторите ход.") from exc
-        draft = _validated_draft(raw)
-        budget = draft.ask * random.randint(BUDGET_SHARE_MIN, BUDGET_SHARE_MAX) // 100
-        try:
-            belief = self._brain.judge_opening(
-                {"company_name": draft.company_name, "pitch": draft.pitch}
-            )
+            belief = self._brain.judge_opening({"company_name": name, "pitch": text})
         except ApiError:
             raise
         except Exception as exc:
             raise ApiError("Сбой RouterAI. Стол не изменился, повторите ход.") from exc
         return _Table(
-            company_name=draft.company_name,
-            pitch=draft.pitch,
-            ask=draft.ask,
+            company_name=name,
+            pitch=text,
+            ask=ask_value,
             budget=budget,
             technique=belief.technique,
             morality=belief.morality,
-            valuation=draft.ask,
-            patience=_patience(politeness),
+            valuation=ask_value,
             greed=greed,
             politeness=politeness,
         )
+
     def view(self) -> View:
         return self._view()
 
     def submit(self, строка: str) -> View:
         table = self._require_table()
         if table.outcome is not None:
-            raise InputError("Стол закрыт: партия уже закончилась")
+            raise InputError("Стол закрыт: Сделка уже закончилась")
         command = parse(строка)
         if isinstance(command, _Quit):
             table.outcome = "отказ основателя"
@@ -211,13 +222,6 @@ class Game:
             table.valuation = table.valuation * (100 + delta) // 100
         if table.founder_offer is not None:
             table.valuation = _anchor(table.valuation, _implied(table.founder_offer))
-        if speech.burn_patience:
-            table.patience = max(0, table.patience - 1)
-            if table.patience == 0:
-                table.outcome = "исчерпание"
-                line = self._speak({"reaction": "exhaustion", "outcome": table.outcome})
-                table.remarks.append(Remark(speaker="инвестор", text=line))
-                return self._view()
 
         judgement = self._judge_reaction()
         legal = _legal_actions(table)
@@ -293,7 +297,6 @@ class Game:
         state: dict[str, object] = {
             "pitch": table.pitch,
             "ask": table.ask,
-            "patience": table.patience,
             "greed": table.greed,
             "politeness": table.politeness,
             "technique": table.technique,
@@ -318,7 +321,6 @@ class Game:
             company_name=table.company_name,
             pitch=table.pitch,
             ask=table.ask,
-            patience=table.patience,
             greed=table.greed,
             politeness=table.politeness,
             remarks=tuple(table.remarks),
@@ -403,20 +405,18 @@ def _trait(value: int, name: str) -> int:
     return value
 
 
-def _validated_draft(raw: CompanyDraft | object) -> CompanyDraft:
-    try:
-        draft = raw if isinstance(raw, CompanyDraft) else CompanyDraft.model_validate(raw)
-    except Exception as exc:
-        raise ApiError("Сбой RouterAI. Стол не изменился, повторите ход.") from exc
-    if not draft.company_name.strip() or not draft.pitch.strip():
-        raise ApiError("Сбой RouterAI. Стол не изменился, повторите ход.")
-    if not ASK_MIN <= draft.ask <= ASK_MAX:
-        raise ApiError("Сбой RouterAI. Стол не изменился, повторите ход.")
-    return draft
-
-
-def _patience(politeness: int) -> int:
-    return 1 + politeness // 20
+def _validated_founder_company(
+    company_name: str, pitch: str, ask: int | None
+) -> tuple[str, str, int]:
+    name = company_name.strip()
+    text = pitch.strip()
+    if not name:
+        raise InputError("Нужно имя Компании")
+    if not text:
+        raise InputError("Нужен Питч")
+    if ask is None or not ASK_MIN <= ask <= ASK_MAX:
+        raise InputError(f"Запрос должен быть от {ASK_MIN} до {ASK_MAX}")
+    return name, text, ask
 
 
 def _min_share(greed: int) -> int:
@@ -556,7 +556,6 @@ def _snapshot(table: _Table) -> _Table:
         technique=table.technique,
         morality=table.morality,
         valuation=table.valuation,
-        patience=table.patience,
         greed=table.greed,
         politeness=table.politeness,
         remarks=list(table.remarks),

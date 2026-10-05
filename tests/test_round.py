@@ -47,7 +47,6 @@ def test_bad_share_or_bare_offer_is_input_error_and_table_stays() -> None:
     else:
         raise AssertionError("share 0 must be an input error")
     assert game.view().remarks == remarks
-    assert game.view().patience == opened.patience
 
     try:
         game.submit("предложить просто так")
